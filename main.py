@@ -5,29 +5,33 @@ import pandas as pd
 import pytz
 import pyarrow
 from datetime import datetime
-
-# authentication check
-def test_login_BigQuery():
-    # If you don't specify credentials when constructing the client, the
-    # client library will look for credentials in the environment.
-    storage_client = storage.Client()
-
-    # Make an authenticated API request
-    buckets = list(storage_client.list_buckets())
-    print(buckets)
+import os
 
 
-def test_load_BigQuery_csv ():
+def main():
+    # TODO Change cloudfunctiontest.json to the name of your service account credential file
+    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = "cloudfunctiontest.json" 
+    # TODO Change the table_id to table ID you coppied from BigQuery. Note - you will need to replace the : with .
+    # Project_ID:Dataset.Table -> Project_ID.Dataset.Table
+    table_id = "cloudfunctiontest-299816.CloudFunctionDataset.CloudFunctionTable"
+    
+    #test_load_BigQuery_JSON(table_id)
+    #test_load_BigQuery_csv(table_id)
+    #test_load_BigQuery_Pandas(table_id)
+
+    BigQueryQuery(table_id)
+
+
+def test_load_BigQuery_csv (table_id):
+    #GCP Documentation -  https://cloud.google.com/bigquery/docs/loading-data-cloud-storage-csv
     # Construct a BigQuery client object.
     client = bigquery.Client()
-    # TODO(developer): Set table_id to the ID of the table to create.
-    # Note - need to exchange : for . in readme
-    table_id = "bigquery-299706.201225BigQuery.Test123"
-
+    
     job_config = bigquery.LoadJobConfig(
-        source_format=bigquery.SourceFormat.CSV, skip_leading_rows=1, autodetect=True, schema=[bigquery.SchemaField("Name", "STRING")],
+        source_format=bigquery.SourceFormat.CSV, skip_leading_rows=1, autodetect=True, 
+        schema=[bigquery.SchemaField("Name", "STRING")],
     )
-    with open("test.csv", "rb") as source_file:
+    with open("names.csv", "rb") as source_file:
         job = client.load_table_from_file(source_file, table_id, job_config=job_config)
 
     job.result()  # Waits for the job to complete.
@@ -39,13 +43,11 @@ def test_load_BigQuery_csv ():
         )
     )
 
-def test_load_BigQuery_JSON ():
+def test_load_BigQuery_JSON (table_id):
+    # GCP Documentation - https://cloud.google.com/bigquery/docs/loading-data-cloud-storage-json
     # Construct a BigQuery client object.
     client = bigquery.Client()
 
-    # TODO(developer): Set table_id to the ID of the table to create.
-    # Note - need to exchange : for . in readme
-    table_id = "bigquery-299706.201225BigQuery.Test123"
     json_rows = [{"Name": "BillyJ"},{"Name": "FredK"}]
 
     job = client.load_table_from_json(json_rows, table_id)
@@ -58,13 +60,10 @@ def test_load_BigQuery_JSON ():
         )
     )
 
-def test_load_BigQuery_Pandas():
-    # Construct a BigQuery client object.
-    client = bigquery.Client()
+def test_load_BigQuery_Pandas(table_id):
 
-    # TODO(developer): Set table_id to the ID of the table to create.
-    # Note - need to exchange : for . in readme
-    table_id = "bigquery-299706.201225BigQuery.Test123"
+    client = bigquery.Client() #credentials=JSON_credentials
+
     job_config = bigquery.LoadJobConfig(
         schema=[
             bigquery.SchemaField("Name", "STRING"),
@@ -78,7 +77,6 @@ def test_load_BigQuery_Pandas():
     print (pd_dataframe)
 
     job = client.load_table_from_dataframe(pd_dataframe, table_id, job_config=job_config)
-
     job.result()  # Waits for the job to complete.
 
     table = client.get_table(table_id)  # Make an API request.
@@ -88,13 +86,14 @@ def test_load_BigQuery_Pandas():
         )
     )
 
-def BigQueryQuery ():
+def BigQueryQuery (table_id):
+    
     client = bigquery.Client()
-    table_id = "bigquery-299706.201225BigQuery.Test123"
 
-    query_string = """
+    # query to pull out the latest Name added
+    query_string = f"""
                     select Name, max(TimestampValue) as TimestampValue 
-                    from `bigquery-299706.201225BigQuery.Test123` 
+                    from `{table_id}` 
                     where TimestampValue is not null 
                     group by Name
                     """
@@ -106,12 +105,6 @@ def BigQueryQuery ():
     print(dataframe)
 
 
-def main():
-    #test_login_BigQuery()
-    #test_load_BigQuery()
-    #test_load_BigQuery_JSON()
-    test_load_BigQuery_Pandas()
-    #BigQueryQuery()
 
 if __name__ == '__main__':
     main()
